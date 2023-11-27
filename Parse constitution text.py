@@ -1,21 +1,8 @@
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 import os
 
-def remove_substring_from_file(file_path, substring):
-   # Откройте файл для чтения и создайте новый файл для записи
-   with open(file_path, 'r', encoding="utf8") as read_file, open('temp.txt', 'w', encoding="utf8") as write_file:
-       # Прочитайте файл построчно
-       for line in read_file:
-           # Удалите все вхождения подстроки
-           new_line = line.replace(substring, '')
-           # Запишите обновленные строки в новый файл
-           write_file.write(new_line)
-   # Замените исходный файл новым файлом
-   os.remove(file_path)
-   os.rename('temp.txt', file_path)
-
-
+# Удаление пустых строк из файла
 def remove_empty_lines(filename):
    if not os.path.isfile(filename):
        print("{} does not exist".format(filename))
@@ -27,6 +14,18 @@ def remove_empty_lines(filename):
    with open(filename, 'w', encoding="utf8") as filehandle:
        lines = [line for line in lines if line.strip()]
        filehandle.writelines(lines)
+
+def remove_duplicates(inputFile):
+    # Чтение всех строк из файла в список
+    with open(inputFile, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    # Удаление дубликатов с использованием словаря, сохранение порядка строк
+    lines = list(dict.fromkeys(lines))
+
+    # Запись обратно в файл
+    with open(inputFile, 'w', encoding='utf-8') as f:
+        f.writelines(lines)
 
 # Список URL-ов глав конституции
 urls = [
@@ -52,20 +51,24 @@ with open('constitution.txt', 'w', encoding='utf-8') as f:
  for url in urls:
    response = requests.get(url)
    soup = BeautifulSoup(response.content.decode('cp1251'), 'html.parser')
-   
+
    # Извлечение заголовков и абзацев с классом "stat"
    headers = soup.find_all(['h1', 'h2'])
    stat_paragraphs = soup.find_all('p', class_='stat')
-   
+
    # Запись заголовков и абзацев в файл
    for header in headers:
      f.write(header.get_text() + '\n')
    for stat_paragraph in stat_paragraphs:
      f.write(stat_paragraph.get_text() + '\n')
-     article_text = stat_paragraph.find_next_sibling('p').get_text()
-     f.write(article_text + '\n')   
+     article_paragraphs = stat_paragraph.find_next_siblings('p')
+     for paragraph in article_paragraphs:
+       if isinstance(paragraph.next_element, Comment) and 'blockend' in paragraph.next_element:
+         break
+       f.write(paragraph.get_text() + '\n')
+     f.write('\n')  # Вставка пустой строки между статьями
 
 remove_empty_lines('constitution.txt')
-remove_substring_from_file('constitution.txt', '1.')
+remove_duplicates('constitution.txt')
 
     
